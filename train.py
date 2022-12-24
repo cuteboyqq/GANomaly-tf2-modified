@@ -14,7 +14,7 @@ from absl import logging
 FLAGS = flags.FLAGS
 flags.DEFINE_integer("shuffle_buffer_size", 10000,
                      "buffer size for pseudo shuffle")
-flags.DEFINE_integer("batch_size", 64, "batch_size")
+flags.DEFINE_integer("batch_size", 1, "batch_size")
 flags.DEFINE_integer("isize", 32, "input size")
 flags.DEFINE_string("ckpt_dir", 'ckpt', "checkpoint folder")
 flags.DEFINE_integer("nz", 100, "latent dims")
@@ -61,8 +61,8 @@ def main(_):
     show_loss_distribution = False
     infer_one_image = False
     infer_images = True
-    show_img = True
-    TRAIN = True
+    show_img = False
+    TRAIN = False
     opt = FLAGS
     # logging
     logging.set_verbosity(logging.INFO)

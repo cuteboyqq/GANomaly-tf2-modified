@@ -548,12 +548,12 @@ class GANomaly(GANRunner):
         #input()
         
         #self.G.build(input_shape=(1, 32, 32, 3))
-        self.latent_i, self.gen_img, self.latent_o = self.G(self.input)
+        self.latent_i, self.gen_img1, self.latent_o, self.gen_img2 = self.G(self.input)
         #self.gen_img = renormalize(self.gen_img,0,1)
         #self.save_best()
         #===============Alister 2022-12-24=====================
         self.gen_real_img, self.feat_real = self.D(self.input)
-        self.gen_fake_img, self.feat_fake = self.D(self.gen_img)
+        self.gen_fake_img, self.feat_fake = self.D(self.gen_img1)
         #elf.pred_real, self.feat_real = self.D(self.input)
         #self.pred_fake, self.feat_fake = self.D(self.gen_img)
         g_loss, adv_loss, con_loss, enc_loss = self.g_loss_infer()
@@ -598,7 +598,7 @@ class GANomaly(GANRunner):
             cv2.imwrite(file_path, ori_image)
             #cv2.imshow('ori_img',ori_image)
             #cv2.waitKey(10)
-            out_image = tf.squeeze(self.gen_img)  
+            out_image = tf.squeeze(self.gen_img2)  
             #out_image = renormalize(out_image,0,255)
             #out_image = renormalize(out_image,0,255)
             out_image = out_image.numpy()
@@ -698,12 +698,12 @@ class GANomaly(GANRunner):
             self.input = images
             
             #===Alister 2022-12-24====================
-            self.latent_i, self.gen_img, self.latent_o = self.G(self.input)
+            self.latent_i, self.gen_img1, self.latent_o, self.gen_img2 = self.G(self.input)
             #self.pred_real, self.feat_real = self.D(self.input)
             #self.pred_fake, self.feat_fake = self.D(self.gen_img)
             #===============Alister 2022-12-24=====================
             self.gen_real_img, self.feat_real = self.D(self.input)
-            self.gen_fake_img, self.feat_fake = self.D(self.gen_img)
+            self.gen_fake_img, self.feat_fake = self.D(self.gen_img1)
             
             #self.latent_i, self.gen_img, self.latent_o = self.G(self.input)
             #self.pred_real, self.feat_real = self.D(self.input)
@@ -715,7 +715,7 @@ class GANomaly(GANRunner):
             #print("gen_img")
             #print(self.gen_img)
             images = self.renormalize(self.input)
-            fake_img = self.renormalize(self.gen_img)
+            fake_img = self.renormalize(self.gen_img2)
             #fake_img = self.gen_img
             images = images.cpu().numpy()
             fake_img = fake_img.cpu().numpy()
@@ -1136,8 +1136,8 @@ class GANomaly(GANRunner):
             
             self.err_g_con1 = self.l_con(self.input, self.gen_img1)
             self.err_g_con2 = self.l_con(self.input, self.gen_img2)
-            self.err_g_con_total = (self.err_g_con1 + self.err_g_con2)/2.0
-            
+            #self.err_g_con_total = (self.err_g_con1 + self.err_g_con2)/2.0
+            self.err_g_con_total = self.err_g_con2
             
             g_loss= self.err_g_adv * self.opt.w_adv + \
                     self.err_g_con_total * self.opt.w_con + \
@@ -1177,7 +1177,8 @@ class GANomaly(GANRunner):
             
             self.err_g_con1 = self.l_con(self.input, self.gen_img1)
             self.err_g_con2 = self.l_con(self.input, self.gen_img2)
-            self.err_g_con_total = (self.err_g_con1 + self.err_g_con2)/2.0
+            #self.err_g_con_total = (self.err_g_con1 + self.err_g_con2)/2.0
+            self.err_g_con_total = self.err_g_con2
             
             
             g_loss= self.err_g_adv * self.opt.w_adv + \
@@ -1192,8 +1193,8 @@ class GANomaly(GANRunner):
                     self.err_g_con * self.opt.w_con + \
                     self.err_g_enc * self.opt.w_enc
         
-        
-        return g_loss, self.err_g_adv * self.opt.w_adv, self.err_g_con * self.opt.w_con, self.err_g_enc * self.opt.w_enc
+        return g_loss, self.err_g_adv * self.opt.w_adv, self.err_g_con_total * self.opt.w_con, self.err_g_enc * self.opt.w_enc
+        #return g_loss, self.err_g_adv * self.opt.w_adv, self.err_g_con * self.opt.w_con, self.err_g_enc * self.opt.w_enc
         
 
     def d_loss(self):
