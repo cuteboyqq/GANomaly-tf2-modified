@@ -17,12 +17,25 @@ class Conv_BN_Act(tf.keras.layers.Layer):
                  strides=1,
                  conv_tran=False):
         super(Conv_BN_Act, self).__init__()
+        
+        self.conv_tran = conv_tran
         if conv_tran:
+            
+            self.conv_tr = layers.Conv2D(filters,
+                                      kernel_size=4,
+                                      strides=1,
+                                      padding='same',
+                                      use_bias=False)
+            
+            self.upsample = layers.UpSampling2D()
+            '''
             self.conv = layers.Conv2DTranspose(filters,
                                                ks,
                                                strides=strides,
                                                padding=padding,
                                                use_bias=False)
+            '''
+            
         else:
             self.conv = layers.Conv2D(filters,
                                       ks,
@@ -52,21 +65,14 @@ class Conv_BN_Act(tf.keras.layers.Layer):
             raise ValueError
 
     def call(self, x):
-        x = self.conv(x)
-        #x = self.bn(x) if self.is_bn else x
-        if self.is_bn:
-            x = self.bn(x)
+        if self.conv_tran:
+            x = self.upsample(x)
+            x = self.conv_tr(x)
         else:
-            x = x
-        
-        #x = self.bn(x)
-        #x = x if self.erase_act else self.act(x)
-        if self.erase_act:
-            x = x
-        else:
-            x = self.act(x)
-        #x = self.act(x)
-        
+            x = self.conv(x)
+       
+        x = self.bn(x) if self.is_bn else x
+        x = x if self.erase_act else self.act(x)
         return x
 
 
@@ -105,7 +111,6 @@ class Encoder(tf.keras.layers.Layer):
             self.extra_blocks.append(extra)
 
         self.body_blocks = []
-        '''
         while csize > 4:
             in_feat = cndf
             out_feat = cndf * 2
@@ -116,23 +121,7 @@ class Encoder(tf.keras.layers.Layer):
             self.body_blocks.append(body)
             cndf = cndf * 2
             csize = csize / 2
-        '''
-        #=============================================
-        #16
-        body = Conv_BN_Act(filters=128,
-                           ks=4,
-                           act_type='PRelu',
-                           strides=2)
-        
-        self.body_blocks.append(body)
-        #8
-        body = Conv_BN_Act(filters=256,
-                           ks=4,
-                           act_type='PRelu',
-                           strides=2)
-        self.body_blocks.append(body)
-        #============================================
-        
+
         # state size. K x 4 x 4
         self.output_features = output_features
         self.out_conv = layers.Conv2D(filters=nz,
@@ -209,21 +198,37 @@ class Decoder(tf.keras.layers.Layer):
         super(Decoder, self).__init__()
         assert isize % 16 == 0, "isize has to be a multiple of 16"
         cngf, tisize = ngf // 2, 4
-        '''
         while tisize != isize:
             cngf = cngf * 2
             tisize = tisize * 2
+        #============================================
         '''
-        cngf = 256
         self.in_block = Conv_BN_Act(filters=cngf,
                                     ks=4,
                                     act_type='ReLU',
                                     padding='valid',
                                     conv_tran=True)
-
+        '''
+        self.in_block1 = Conv_BN_Act(filters=cngf,
+                                    ks=4,
+                                    act_type='ReLU',
+                                    padding='valid',
+                                    conv_tran=True)
+        self.in_block2 = Conv_BN_Act(filters=cngf,
+                                    ks=4,
+                                    act_type='ReLU',
+                                    padding='valid',
+                                    conv_tran=True)
+        '''
+        self.conv_tr = layers.Conv2D(filters=cngf,
+                                  kernel_size=4,
+                                  strides=1,
+                                  padding='same',
+                                  use_bias=False)
+        '''
+        #===========================================
         csize, _ = 4, cngf
         self.body_blocks = []
-        '''
         while csize < isize // 2:
             body = Conv_BN_Act(filters=cngf // 2,
                                ks=4,
@@ -233,24 +238,7 @@ class Decoder(tf.keras.layers.Layer):
             self.body_blocks.append(body)
             cngf = cngf // 2
             csize = csize * 2
-        '''
-        #4
-        body = Conv_BN_Act(filters=128,
-                           ks=4,
-                           act_type='ReLU',
-                           strides=2,
-                           conv_tran=True)
-        self.body_blocks.append(body)
-        #8
-        body = Conv_BN_Act(filters=64,
-                           ks=4,
-                           act_type='ReLU',
-                           strides=2,
-                           conv_tran=True)
-        self.body_blocks.append(body)
-        
-        
-        
+
         # Extra layers
         self.extra_blocks = []
         for t in range(n_extra_layers):
@@ -268,12 +256,20 @@ class Decoder(tf.keras.layers.Layer):
                                      conv_tran=True)
 
     def call(self, x):
-        x = self.in_block(x)
+        #print('decoder call')
+        #x = self.in_block(x)
+        x=self.in_block1(x)
+        x=self.in_block2(x)
+        #x=self.conv_tr(x)
+        #x = self.in_block1(x)
+        #x = self.in_block2(x)
+        
         for block in self.body_blocks:
             x = block(x)
         for block in self.extra_blocks:
             x = block(x)
         x = self.out_block(x)
+
         return x
 
 
@@ -319,13 +315,13 @@ class NetG(tf.keras.Model):
             self.encoder1 = Encoder(opt.isize, opt.nz, opt.nc, opt.ngf, opt.extralayers)
             self.decoder1 = Decoder(opt.isize, opt.nz, opt.nc, opt.ngf, opt.extralayers)
             self.encoder2 = Encoder(opt.isize, opt.nz, opt.nc, opt.ngf, opt.extralayers)
-            self.decoder2 = Decoder(opt.isize, opt.nz, opt.nc, opt.ngf, opt.extralayers)
+            #self.decoder2 = Decoder(opt.isize, opt.nz, opt.nc, opt.ngf, opt.extralayers)
     def call(self, x):
         latent_i = self.encoder1(x)
         gen_img1 = self.decoder1(latent_i)
         latent_o = self.encoder2(gen_img1)
-        gen_img2 = self.decoder2(latent_o)
-        return latent_i, gen_img1, latent_o, gen_img2
+        #gen_img2 = self.decoder2(latent_o)
+        return latent_i, gen_img1, latent_o
 
     def num_params(self):
         return sum(
@@ -343,15 +339,15 @@ class NetD(tf.keras.Model):
             self.encoder = DenseEncoder(opt.encdims, out_size=1, output_features=True)
         else:
             #self.encoder = Encoder(opt.isize, 1, opt.nc, opt.ngf, opt.extralayers, output_features=True)
-            self.encoder = Encoder(opt.isize, opt.nz, opt.nc, opt.ngf, opt.extralayers,output_features=True)
+            self.encoder = Encoder(opt.isize, opt.nz, opt.nc, opt.ngf, opt.extralayers, output_features=True)
             self.decoder = Decoder(opt.isize, opt.nz, opt.nc, opt.ngf, opt.extralayers)
 
         self.sigmoid = layers.Activation(tf.sigmoid)
 
     def call(self, x):
-        latent_i, feature = self.encoder(x)
+        latent_i, last_feature = self.encoder(x)
         gen_img = self.decoder(latent_i)
-        return gen_img, feature
+        return gen_img, last_feature
         #output, last_features = self.encoder(x)
         #output = self.sigmoid(output)
         #return output, last_features
@@ -514,6 +510,10 @@ class GANomaly(GANRunner):
         self.l_adv = l2_loss
         # contextual loss
         self.l_con = l1_loss
+        
+        # contextual loss
+        self.l_con2 = l2_loss
+        
         # Encoder loss
         self.l_enc = l2_loss
         # discriminator loss
@@ -548,7 +548,7 @@ class GANomaly(GANRunner):
         #input()
         
         #self.G.build(input_shape=(1, 32, 32, 3))
-        self.latent_i, self.gen_img1, self.latent_o, self.gen_img2 = self.G(self.input)
+        self.latent_i, self.gen_img1, self.latent_o = self.G(self.input)
         #self.gen_img = renormalize(self.gen_img,0,1)
         #self.save_best()
         #===============Alister 2022-12-24=====================
@@ -598,7 +598,7 @@ class GANomaly(GANRunner):
             cv2.imwrite(file_path, ori_image)
             #cv2.imshow('ori_img',ori_image)
             #cv2.waitKey(10)
-            out_image = tf.squeeze(self.gen_img2)  
+            out_image = tf.squeeze(self.gen_img1)  
             #out_image = renormalize(out_image,0,255)
             #out_image = renormalize(out_image,0,255)
             out_image = out_image.numpy()
@@ -698,7 +698,7 @@ class GANomaly(GANRunner):
             self.input = images
             
             #===Alister 2022-12-24====================
-            self.latent_i, self.gen_img1, self.latent_o, self.gen_img2 = self.G(self.input)
+            self.latent_i, self.gen_img1, self.latent_o = self.G(self.input)
             #self.pred_real, self.feat_real = self.D(self.input)
             #self.pred_fake, self.feat_fake = self.D(self.gen_img)
             #===============Alister 2022-12-24=====================
@@ -708,14 +708,14 @@ class GANomaly(GANRunner):
             #self.latent_i, self.gen_img, self.latent_o = self.G(self.input)
             #self.pred_real, self.feat_real = self.D(self.input)
             #self.pred_fake, self.feat_fake = self.D(self.gen_img)
-            g_loss = self.g_loss()
+            g_loss = self.g_loss_infer()
             #g_loss = 0.0
             #print("input")
             #print(self.input)
             #print("gen_img")
             #print(self.gen_img)
             images = self.renormalize(self.input)
-            fake_img = self.renormalize(self.gen_img2)
+            fake_img = self.renormalize(self.gen_fake_img)
             #fake_img = self.gen_img
             images = images.cpu().numpy()
             fake_img = fake_img.cpu().numpy()
@@ -732,10 +732,10 @@ class GANomaly(GANRunner):
                 plt.savefig(file_path)
                 cnt+=1
             if data_type=='normal':
-                print('{} normal: {}'.format(show_num,g_loss.numpy()))
+                print('{} normal: {}'.format(show_num,g_loss[0].numpy()))
             else:
-                print('{} abnormal: {}'.format(show_num,g_loss.numpy()))
-            loss_list.append(float(g_loss))
+                print('{} abnormal: {}'.format(show_num,g_loss[0].numpy()))
+            loss_list.append(float(g_loss[0]))
             show_num+=1
             #if show_num%20==0:
                 #print(show_num)
@@ -814,7 +814,7 @@ class GANomaly(GANRunner):
     def plot_loss_histogram(self,loss_list, name):
         from matplotlib import pyplot
         import numpy
-        bins = numpy.linspace(0, 6, 100)
+        bins = numpy.linspace(0, 15, 100)
         pyplot.hist(loss_list, bins=bins, alpha=0.5, label=name)
         os.makedirs('./runs/detect',exist_ok=True)
         filename = str(name) + '.jpg'
@@ -826,7 +826,7 @@ class GANomaly(GANRunner):
     def plot_two_loss_histogram(self,normal_list, abnormal_list, name):
         import numpy
         from matplotlib import pyplot
-        bins = numpy.linspace(0, 6, 100)
+        bins = numpy.linspace(0, 10, 100)
         pyplot.hist(normal_list, bins, alpha=0.5, label='normal')
         pyplot.hist(abnormal_list, bins, alpha=0.5, label='abnormal')
         pyplot.legend(loc='upper right')
@@ -1040,10 +1040,10 @@ class GANomaly(GANRunner):
         gt_labels = []
         for step, (x_batch_train, y_batch_train) in enumerate(test_dataset):
             #========Alister 2022-12-24===============
-            latent_i, gen_img1, latent_o, gen_img2 = self.G(x_batch_train)
+            latent_i, gen_img1, latent_o = self.G(x_batch_train)
             #latent_i, gen_img, latent_o = self.G(x_batch_train)
-            latent_i, gen_img1, latent_o, gen_img2= latent_i.numpy(), gen_img1.numpy(
-            ), latent_o.numpy(), gen_img1.numpy()
+            latent_i, gen_img1, latent_o= latent_i.numpy(), gen_img1.numpy(
+            ), latent_o.numpy()
             #latent_i, gen_img, latent_o = latent_i.numpy(), gen_img.numpy(
             #), latent_o.numpy()
             #=========================================================
@@ -1082,9 +1082,9 @@ class GANomaly(GANRunner):
         """
         self.input = x
         with tf.GradientTape() as g_tape, tf.GradientTape() as d_tape:
-            self.latent_i, self.gen_img1, self.latent_o, self.gen_img2 = self.G(self.input)
+            self.latent_i, self.gen_img1, self.latent_o = self.G(self.input)
             #self.pred_real, self.feat_real = self.D(self.input)
-            #self.pred_fake, self.feat_fake = self.D(self.gen_img)
+            #self.pred_fake, self.feat_fake = self.D(self.gen_img1)
             #===============Alister 2022-12-24=====================
             self.gen_real_img, self.feat_real = self.D(self.input)
             self.gen_fake_img, self.feat_fake = self.D(self.gen_img1)
@@ -1114,21 +1114,23 @@ class GANomaly(GANRunner):
         pass
 
     def g_loss(self):
-        USE_NEW_LOSS_PAPER=False
-        USE_NEW_LOSS_ANDY=True
-        if USE_NEW_LOSS_PAPER:
+        USE_ADAE_LOSS=True
+        USE_NEW_LOSS_ANDY=False
+        if USE_ADAE_LOSS:
             #================Alister 2022-12-24====================
             self.err_g_adv = self.l_adv(self.feat_real, self.feat_fake)
             self.err_g_enc = self.l_enc(self.latent_i, self.latent_o)
             
-            self.err_g_con1 = self.l_con(self.input, self.gen_img)
-            self.err_g_con2 = self.l_con(self.gen_img, self.gen_fake_img)
-            self.err_g_con_total = (self.err_g_con1 + self.err_g_con2)
+            self.err_g_con1 = self.l_con(self.input, self.gen_img1)
+            #self.err_g_con_total = self.err_g_con1
+            self.err_g_con2 = self.l_con(self.gen_img1, self.gen_fake_img)
+            self.err_g_con_total = self.err_g_con1 + self.err_g_con2*0.02
             
             
             g_loss= self.err_g_adv * self.opt.w_adv + \
                     self.err_g_con_total * self.opt.w_con + \
                     self.err_g_enc * self.opt.w_enc
+            #g_loss = self.err_g_con_total
         elif USE_NEW_LOSS_ANDY:
             #================Alister 2022-12-24====================
             self.err_g_adv = self.l_adv(self.feat_real, self.feat_fake)
@@ -1136,8 +1138,8 @@ class GANomaly(GANRunner):
             
             self.err_g_con1 = self.l_con(self.input, self.gen_img1)
             self.err_g_con2 = self.l_con(self.input, self.gen_img2)
-            #self.err_g_con_total = (self.err_g_con1 + self.err_g_con2)/2.0
-            self.err_g_con_total = self.err_g_con2
+            self.err_g_con_total = (self.err_g_con1 + self.err_g_con2*0.02)
+            #self.err_g_con_total = self.err_g_con2
             
             g_loss= self.err_g_adv * self.opt.w_adv + \
                     self.err_g_con_total * self.opt.w_con + \
@@ -1145,7 +1147,7 @@ class GANomaly(GANRunner):
         else:
         
             self.err_g_adv = self.l_adv(self.feat_real, self.feat_fake)
-            self.err_g_con = self.l_con(self.input, self.gen_img)
+            self.err_g_con = self.l_con(self.input, self.gen_img1)
             self.err_g_enc = self.l_enc(self.latent_i, self.latent_o)
             g_loss= self.err_g_adv * self.opt.w_adv + \
                     self.err_g_con * self.opt.w_con + \
@@ -1155,21 +1157,24 @@ class GANomaly(GANRunner):
     
     
     def g_loss_infer(self):
-        USE_NEW_LOSS_PAPER=False
-        USE_NEW_LOSS_ANDY=True
-        if USE_NEW_LOSS_PAPER:
+        USE_ADAE_LOSS=True
+        USE_NEW_LOSS_ANDY=False
+        if USE_ADAE_LOSS:
             #================Alister 2022-12-24====================
             self.err_g_adv = self.l_adv(self.feat_real, self.feat_fake)
             self.err_g_enc = self.l_enc(self.latent_i, self.latent_o)
             
-            self.err_g_con1 = self.l_con(self.input, self.gen_img)
-            self.err_g_con2 = self.l_con(self.gen_img, self.gen_fake_img)
-            self.err_g_con_total = (self.err_g_con1 + self.err_g_con2)
-            
+            self.err_g_con1 = self.l_con(self.input, self.gen_fake_img)
+            #self.err_g_con2 = self.l_con(self.gen_img1, self.gen_fake_img)
+            self.err_g_con_total = self.err_g_con1
+            #print('err_g_con_total : {}'.format(self.err_g_con_total))
+            #print('err_g_adv : {}'.format(self.err_g_adv))
+            #print('err_g_enc : {}'.format(self.err_g_enc))
             
             g_loss= self.err_g_adv * self.opt.w_adv + \
                     self.err_g_con_total * self.opt.w_con + \
                     self.err_g_enc * self.opt.w_enc
+            #print('g_loss : {}'.format(g_loss))
         elif USE_NEW_LOSS_ANDY:
             #================Alister 2022-12-24====================
             self.err_g_adv = self.l_adv(self.feat_real, self.feat_fake)
@@ -1177,8 +1182,8 @@ class GANomaly(GANRunner):
             
             self.err_g_con1 = self.l_con(self.input, self.gen_img1)
             self.err_g_con2 = self.l_con(self.input, self.gen_img2)
-            #self.err_g_con_total = (self.err_g_con1 + self.err_g_con2)/2.0
-            self.err_g_con_total = self.err_g_con2
+            self.err_g_con_total = (self.err_g_con1 + self.err_g_con2*0.02)
+            #self.err_g_con_total = self.err_g_con2
             
             
             g_loss= self.err_g_adv * self.opt.w_adv + \
@@ -1187,11 +1192,12 @@ class GANomaly(GANRunner):
         else:
         
             self.err_g_adv = self.l_adv(self.feat_real, self.feat_fake)
-            self.err_g_con = self.l_con(self.input, self.gen_img)
+            self.err_g_con = self.l_con(self.input, self.gen_img1)
             self.err_g_enc = self.l_enc(self.latent_i, self.latent_o)
             g_loss= self.err_g_adv * self.opt.w_adv + \
                     self.err_g_con * self.opt.w_con + \
                     self.err_g_enc * self.opt.w_enc
+        
         
         return g_loss, self.err_g_adv * self.opt.w_adv, self.err_g_con_total * self.opt.w_con, self.err_g_enc * self.opt.w_enc
         #return g_loss, self.err_g_adv * self.opt.w_adv, self.err_g_con * self.opt.w_con, self.err_g_enc * self.opt.w_enc
@@ -1201,7 +1207,7 @@ class GANomaly(GANRunner):
         #===============Alister 2022-12-24=====================
         self.err_d_con1 = self.l_con(self.input, self.gen_real_img)
         self.err_d_con2 = self.l_con(self.gen_img1, self.gen_fake_img)
-        d_loss = self.err_d_con1 - self.err_d_con2
+        d_loss = self.err_d_con1*50 - self.err_d_con2*1
         #self.err_d_real = self.l_bce(self.pred_real, self.real_label)
         #self.err_d_fake = self.l_bce(self.pred_fake, self.fake_label)
         #d_loss = (self.err_d_real + self.err_d_fake) * 0.5

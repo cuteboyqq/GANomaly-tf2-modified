@@ -14,7 +14,7 @@ from absl import logging
 FLAGS = flags.FLAGS
 flags.DEFINE_integer("shuffle_buffer_size", 10000,
                      "buffer size for pseudo shuffle")
-flags.DEFINE_integer("batch_size", 1, "batch_size")
+flags.DEFINE_integer("batch_size", 32, "batch_size")
 flags.DEFINE_integer("isize", 32, "input size")
 flags.DEFINE_string("ckpt_dir", 'ckpt', "checkpoint folder")
 flags.DEFINE_integer("nz", 100, "latent dims")
@@ -60,9 +60,9 @@ def main(_):
     show_loss_histogram = False
     show_loss_distribution = False
     infer_one_image = False
-    infer_images = True
-    show_img = False
-    TRAIN = False
+    infer_images = False
+    show_img = True
+    TRAIN = True
     opt = FLAGS
     # logging
     logging.set_verbosity(logging.INFO)
@@ -173,7 +173,7 @@ def main(_):
         if TRAIN == False:
             if show_img==True:
                 batch_size_=opt.batch_size
-                shuffle=True
+                shuffle=False
             else:
                 batch_size_=1
                 shuffle=False
@@ -238,7 +238,7 @@ def main(_):
         #ganomaly.evaluate_best(test_dataset)
     else:
         if show_img:
-            SHOW_MAX_NUM = 4
+            SHOW_MAX_NUM = 10
         else:
             SHOW_MAX_NUM = 500
             
