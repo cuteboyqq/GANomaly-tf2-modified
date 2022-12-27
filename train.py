@@ -24,7 +24,7 @@ flags.DEFINE_integer("ngf", 64, "number of generator's filters")
 flags.DEFINE_integer("extralayers", 0, "extralayers for both G and D")
 flags.DEFINE_list("encdims", None, "Layer dimensions of the encoder and in reverse of the decoder."
                                    "If given, dense encoder and decoders are used.")
-flags.DEFINE_integer("niter",100,"number of training epochs")
+flags.DEFINE_integer("niter",120,"number of training epochs")
 flags.DEFINE_float("lr", 2e-4, "learning rate")
 flags.DEFINE_float("w_adv", 1., "Adversarial loss weight")
 flags.DEFINE_float("w_con", 50., "Reconstruction loss weight")
@@ -60,8 +60,8 @@ def main(_):
     show_loss_histogram = False
     show_loss_distribution = False
     infer_one_image = False
-    infer_images = False
-    show_img = True
+    infer_images = True
+    show_img = False
     TRAIN = True
     opt = FLAGS
     # logging
@@ -173,7 +173,7 @@ def main(_):
         if TRAIN == False:
             if show_img==True:
                 batch_size_=opt.batch_size
-                shuffle=False
+                shuffle=True
             else:
                 batch_size_=1
                 shuffle=False
@@ -240,7 +240,7 @@ def main(_):
         if show_img:
             SHOW_MAX_NUM = 10
         else:
-            SHOW_MAX_NUM = 500
+            SHOW_MAX_NUM = 14400
             
         if show_loss_histogram or show_loss_distribution or show_img:
             ANDY_CODE = False
@@ -305,12 +305,11 @@ def main(_):
             img_dir = r'/home/ali/datasets/factory_data/2022-12-21-4cls-cropimg/test/crops_line/line'
             normal_name =  str(opt.isize) + 'nz' + str(opt.nz) + '-' + str(SHOW_MAX_NUM) + '-opencv-normal' + '-ndf' + str(opt.ndf) + '-ngf' + str(opt.ngf)
             loss_normal_list = ganomaly.infer_python(img_dir,SHOW_MAX_NUM,save_image=True,name=normal_name,isize=opt.isize)
-            
-            #================
+            #=================
             #  define loss TH
             #================
             # User Define Loss TH
-            user_loss_list = [0,0.25,0.5,0.7,0.8,0.9,1.0,1.25,1.5,1.75,2.0,3.0,4.0]
+            user_loss_list = [0,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.25,1.5,1.75,2.0,2.25,2.5,2.75,3.0,3.25,3.5,4.0,4.5,5.0,6.0,7.0,8.0,9.0]
             print('len(user_loss_list) : {}'.format(len(user_loss_list)))
             
             img_dir = r'/home/ali/datasets/factory_data/2022-12-21-4cls-cropimg/test/crops_noline/noline'
